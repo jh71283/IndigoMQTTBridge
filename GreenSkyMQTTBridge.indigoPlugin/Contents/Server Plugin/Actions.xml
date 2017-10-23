@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<!-- If your plugin wants to add actions to the action step dialog that are independent
+	 of a device (devices define their own actions), define them here.
+-->
+<Actions>
+   
+</Actions>

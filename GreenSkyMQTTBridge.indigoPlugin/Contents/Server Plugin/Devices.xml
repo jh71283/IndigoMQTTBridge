@@ -1,0 +1,107 @@
+<?xml version="1.0"?>
+<Devices>
+<Device type="relay" id="MQTTrelay">
+		<Name>MQTT Switch</Name>
+		<ConfigUI>
+			<!-- The ConfigUI here is just an example of the type of device
+			specific UI that might be needed. Here you might specify a text
+			field for an IP address, a serial port popup, or other device
+			specific options.
+			-->
+			<Field id="stateTopic" type="textfield" defaultValue="">
+				<Label>State Topic:</Label>
+			</Field>
+			<Field id="commandTopic" type="textfield" defaultValue="">
+				<Label>Command Topic:</Label>
+			</Field>
+			<Field id="payloadOn" type="textfield" defaultValue="on">
+				<Label>'On' Payload:</Label>
+			</Field>
+			<Field id="payloadOff" type="textfield" defaultValue="off">
+				<Label>'Off' Payload:</Label>
+			</Field>
+			<Field id="qos" type="textfield" defaultValue="0">
+				<Label>QOS:</Label>
+			</Field>
+			
+		</ConfigUI>
+		<UiDisplayStateId>display</UiDisplayStateId>
+		<States>
+			<State id="display">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Display</TriggerLabel>
+				<ControlPageLabel>Display</ControlPageLabel>
+			</State>
+			<!-- By default sensor type devices automatically inherit:
+
+				onOffState state IF property SupportsOnState is True
+				sensorValue state IF property SupportsSensorValue is True
+
+			The plugin can specify additional custom states and custom
+			actions (in Actions.xml) to modify custom states. As an example
+			here, we define a new custom state, backlightBrightness, which
+			is used to control the brightness of the backlit display of
+			the module.
+			-->
+			
+		</States>
+	</Device>
+	<Device type="sensor" id="MQTTBinarySensor">
+		<Name>MQTT Binary Sensor</Name>
+		<ConfigUI>
+			<Field id="stateTopic" type="textfield" defaultValue="">
+				<Label>State Topic:</Label>
+			</Field>
+		
+			<Field id="payloadOn" type="textfield" defaultValue="on">
+				<Label>'On' Payload:</Label>
+			</Field>
+			<Field id="payloadOff" type="textfield" defaultValue="off">
+				<Label>'Off' Payload:</Label>
+			</Field>
+		
+		<Field id="SupportsOnState" type="checkbox" defaultValue="true" hidden="true" />
+			<Field id="SupportsSensorValue" type="checkbox" defaultValue="false" hidden="true" />
+			<Field id="SupportsStatusRequest" type="checkbox" defaultValue="false" hidden="true" />
+			<Field id="AllowOnStateChange" type="checkbox" defaultValue="false" hidden="true" />
+
+		</ConfigUI>
+		
+		<UiDisplayStateId>display</UiDisplayStateId>
+		<States>
+			<State id="display">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Display</TriggerLabel>
+				<ControlPageLabel>Display</ControlPageLabel>
+			</State>	
+
+		</States>
+	</Device>	
+	<Device type="sensor" id="MQTTSensor">
+		<Name>MQTT Sensor</Name>
+		<ConfigUI>
+			<Field id="stateTopic" type="textfield" defaultValue="">
+				<Label>State Topic:</Label>
+			</Field>
+			<Field id="unit" type="textfield" defaultValue="">
+				<Label>Unit:</Label>
+			</Field>
+			
+			<Field id="SupportsOnState" type="checkbox" defaultValue="false" hidden="true" />
+			<Field id="SupportsSensorValue" type="checkbox" defaultValue="true" hidden="true" />
+			<Field id="SupportsStatusRequest" type="checkbox" defaultValue="false" hidden="true" />
+			<Field id="AllowOnStateChange" type="checkbox" defaultValue="false" hidden="true" />
+
+		</ConfigUI>
+		
+		<UiDisplayStateId>display</UiDisplayStateId>
+		<States>
+		<State id="display">
+				<ValueType>String</ValueType>
+				<TriggerLabel>Display</TriggerLabel>
+				<ControlPageLabel>Display</ControlPageLabel>
+			</State>
+				
+		</States>
+	</Device>	
+</Devices>
