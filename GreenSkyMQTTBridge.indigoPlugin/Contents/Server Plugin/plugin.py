@@ -17,9 +17,11 @@ import exceptions
 import argparse
 import socket
 import time
+import thread
 import datetime
 import paho.mqtt.client as mqtt
-
+import ptvsd
+ptvsd.enable_attach("my_secret", address = ('0.0.0.0', 3000))
 # Note the "indigo" module is automatically imported and made available inside
 # our global name space by the host process.
 
@@ -31,17 +33,20 @@ class Plugin(indigo.PluginBase):
 
 	def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs):
 		indigo.PluginBase.__init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
+
+		#ptvsd.enable_attach("my_secret", address = ('0.0.0.0', 3000))
 		self.MQTT_SERVER = ''
 		self.MQTT_PORT = 0
-		self.topicList = []
+		self.topicList = {}
 		self.client = mqtt.Client()
 		self.client.on_connect = self.on_connect
 		self.client.on_disconnect = self.on_disconnect
 		self.client.on_message = self.on_message
 		self.connected = False
 		self.updatePrefs(pluginPrefs)
+		self.sentMessages = []
 		self.LastConnectionWarning = datetime.datetime.now()-datetime.timedelta(days=1)
-		#indigo.devices.subscribeToChanges()
+		indigo.devices.subscribeToChanges()
 	
 		
 	def __del__(self):
@@ -52,9 +57,14 @@ class Plugin(indigo.PluginBase):
 		self.debug = prefs.get("showDebugInfo", False)
 		self.MQTT_SERVER = prefs.get("serverAddress", 'localhost')
 		self.MQTT_PORT = int(prefs.get("serverPort", 1883))
+		self.username = prefs.get("serverUsername", "")
+		self.password = prefs.get("serverPassword", "")
 		self.DevicesToLog = prefs.get("devicesToLog",[])
+		self.superBridgePatternOut = prefs.get("superBridgePatternOut", 'indigo/devices/{DeviceName}/{State}')
+		self.superBridgePatternIn = prefs.get("superBridgePatternIn", 'indigo/devices/{DeviceName}/{State}/set')
+		self.superBridgePatternActionGroup = prefs.get("superBridgePatternActionGroup", 'indigo/actionGroups/{ActionGroup}/execute')
 		
-
+		
 		if self.debug == True:
 			self.debugLog("logger debugging enabled")
 		else:
@@ -65,12 +75,13 @@ class Plugin(indigo.PluginBase):
 		while True:
 			if self.connected == False:
 				self.connectToMQTTBroker()
-				
+
 			self.sleep(60)
 		
 	def connectToMQTTBroker(self):
 		self.populateTopicList()
 		self.client.disconnect()
+		self.client.username_pw_set(self.username, self.password)
 		self.client.connect(self.MQTT_SERVER, self.MQTT_PORT, 59)	
 		self.client.loop_start()
 		
@@ -103,11 +114,31 @@ class Plugin(indigo.PluginBase):
 			return value
 
 	def populateTopicList(self):
-		self.topicList =[]
+		self.topicList ={}
 		for dev in indigo.devices.iter("self"):
-			self.topicList.append(dev.pluginProps["stateTopic"])
-			self.debugLog("adding " + dev.pluginProps["stateTopic"] + " to topic list")
-	
+			self.topicList[dev.pluginProps["stateTopic"]] = "d:" + str(dev.id)
+			#self.debugLog("adding " + dev.pluginProps["stateTopic"] + " to topic list")
+
+		for dev in indigo.devices:
+
+			#self.topicList[self.superBridgePattern.replace("{DeviceName}", dev.name).replace('{State}','#')]= dev.id
+			self.topicList[self.superBridgePatternIn.replace("{DeviceName}", dev.name).replace('{State}','switch')]= "d:" + str(dev.id)
+			self.topicList[self.superBridgePatternIn.replace("{DeviceName}", dev.name).replace('{State}','level')]= "d:" + str(dev.id)
+			#self.debugLog("adding " + mqttTopic + " to topic list")
+			#for state in dev.states:
+			#	mqttTopic = self.superBridgePattern.replace("{DeviceName}", dev.name.replace(" "," ")).replace('{State}',state)
+			#	self.topicList[mqttTopic]= dev.id
+			#	self.debugLog("adding " + mqttTopic + " to topic list") '''
+		for ag in indigo.actionGroups:
+
+			#self.topicList[self.superBridgePattern.replace("{DeviceName}", dev.name).replace('{State}','#')]= dev.id
+			self.topicList[self.superBridgePatternActionGroup.replace("{ActionGroup}", ag.name)]= "ag:" + str(ag.id)
+			#self.debugLog("adding " + mqttTopic + " to topic list")
+			
+		self.debugLog("Topic List:")
+		for key in self.topicList.keys():
+			self.debugLog("\t" + key)
+			
 	def deviceCreated(self, newDev):
 		self.debugLog("Device Created")
 				
@@ -118,10 +149,12 @@ class Plugin(indigo.PluginBase):
 		if str(newDev.id) in self.DevicesToLog:
 			ddiff = self.dict_diff(origDev.states, newDev.states)
 			#indigo.server.log("Device updated: " + str(ddiff))
-			for k in ddiff.keys():
-				mqttTopic= "indigo/devices/" + newDev.name.replace(" ", "_") + "/" + k
-				self.debugLog("New Value for " + mqttTopic + ": " + unicode(ddiff[k][1]))
-				self.client.publish(mqttTopic,unicode(ddiff[k][1]))
+			for state in ddiff.keys():
+				val = unicode(ddiff[state])
+				dev = newDev.name
+				mqttTopic= self.superBridgePatternOut.replace("{DeviceName}",dev).replace("{State}",state)
+				self.debugLog("New Value for " + mqttTopic + ": " + val)
+				self.publish(mqttTopic,val)
 
 	def closedPrefsConfigUi(self, valuesDict, userCancelled):
 		# Since the dialog closed we want to set the debug flag - if you don't directly use
@@ -129,6 +162,28 @@ class Plugin(indigo.PluginBase):
 		# the appropriate stuff here. 
 		if not userCancelled:
 			self.updatePrefs(valuesDict)
+
+	def getDeviceIDFromTopic(self,topic):
+		deviceID=0
+		if self.topicList.has_key(topic) & self.topicList[topic].startswith("d:"):
+			deviceID = int( self.topicList[topic][2:])
+			self.debugLog('Device Dictionary Hit')
+		else:
+			self.debugLog('Device Dictionary Miss')
+
+
+		return deviceID
+
+	def getActionGroupIDFromTopic(self,topic):
+		agID=0
+		if self.topicList.has_key(topic) & self.topicList[topic].startswith("ag:"):
+			agID = int(self.topicList[topic][3:])
+			self.debugLog('Action Group Dictionary Hit')
+		else:
+			self.debugLog('Action Group Dictionary Miss')
+
+
+		return agID
 
 	def startup(self):
 		self.debugLog("startup called")
@@ -149,17 +204,18 @@ class Plugin(indigo.PluginBase):
 			@param second:  Second dicationary to diff.
 			@return diff:	Dict of Key => (first.val, second.val)
 		"""
-		diff = {}
+		diff = { k : second[k] for k, _ in set(second.items()) - set(first.items()) }
+		#diff = {}
 		# Check all keys in first dict
-		for key in first.keys():
-			if (not second.has_key(key)):
-				diff[key] = (first[key], KEYNOTFOUND)
-			elif (first[key] != second[key]):
-				diff[key] = (first[key], second[key])
+		#for key in first.keys():
+		#	if (not second.has_key(key)):
+		#		a=1#diff[key] = (first[key], KEYNOTFOUND)
+		#	elif (first[key] != second[key]):
+		#		diff[key] = (first[key], second[key])
 		# Check all keys in second dict to find missing
-		for key in second.keys():
-			if (not first.has_key(key)):
-				diff[key] = (KEYNOTFOUND, second[key])
+		#for key in second.keys():
+		#	if (not first.has_key(key)):
+		#		diff[key] = (KEYNOTFOUND, second[key])
 		return diff
 
 	# The callback for when the client receives a CONNACK response from the server.
@@ -172,36 +228,83 @@ class Plugin(indigo.PluginBase):
 			self.debugLog("Subscribing to " + topic)
 
 	def on_disconnect(self):
+		self.debugLog("Disconnected from Broker. ")
 		self.connected=False
 
 
 	# The callback for when a PUBLISH message is received from the server.
 	def on_message(self,client, userdata, msg):
 		self.debugLog("Message recd: " + msg.topic + " " + str(msg.payload))
-		if msg.topic in self.topicList:
-			#loop plugin's own devices, looking for a matching state change topic
-			for dev in indigo.devices.iter("self"):
-				if dev.pluginProps["stateTopic"] == msg.topic:
-					self.debugLog("Matched Device: " + dev.name)
-					if dev.deviceTypeId == "MQTTrelay":
-						if msg.payload == dev.pluginProps["payloadOn"]:
-							dev.updateStateOnServer("onOffState", True)
-						if msg.payload == dev.pluginProps["payloadOff"]:
-							dev.updateStateOnServer("onOffState", False)
-					if dev.deviceTypeId == "MQTTBinarySensor":
-						if msg.payload == dev.pluginProps["payloadOn"]:
-							dev.updateStateOnServer("onOffState", True)
-							dev.updateStateOnServer("display", "on")
-							dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOn)
-						
-						if msg.payload == dev.pluginProps["payloadOff"]:
-							dev.updateStateOnServer("onOffState", False)
-							dev.updateStateOnServer("display", "off")
-							dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
-							
-					if dev.deviceTypeId == "MQTTSensor":
-							dev.updateStateOnServer("display", msg.payload + dev.pluginProps["unit"] )
-							dev.updateStateOnServer("sensorValue", msg.payload )
+		thread.start_new_thread(self.processMessage,(client,userdata,msg))
+	
+	def publish(self, topic, payload, qos=0, retain=False):
+		self.client.publish(topic,payload,qos,retain)
+
+	def processMessage(self,client,userdata,msg):
+		self.debugLog("Processing Message " + str(msg))
+		devID = self.getDeviceIDFromTopic(msg.topic)
+		agID = self.getActionGroupIDFromTopic(msg.topic)
+		if devID > 0:
+			self.debugLog("DevID: "+ str(devID))
+			dev = indigo.devices[devID]
+
+			self.debugLog("Matched Device: " + unicode(dev.name))
+			if dev.deviceTypeId == "MQTTrelay":
+				if msg.payload == dev.pluginProps["payloadOn"]:
+					dev.updateStateOnServer("onOffState", True)
+				if msg.payload == dev.pluginProps["payloadOff"]:
+					dev.updateStateOnServer("onOffState", False)
+			elif dev.deviceTypeId == "MQTTBinarySensor":
+				if msg.payload == dev.pluginProps["payloadOn"]:
+					dev.updateStateOnServer("onOffState", True)
+					dev.updateStateOnServer("display", "on")
+					dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOn)
+				
+				if msg.payload == dev.pluginProps["payloadOff"]:
+					dev.updateStateOnServer("onOffState", False)
+					dev.updateStateOnServer("display", "off")
+					dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+					
+			elif dev.deviceTypeId == "MQTTSensor":
+				dev.updateStateOnServer("display", msg.payload + dev.pluginProps["unit"] )
+				dev.updateStateOnServer("sensorValue", msg.payload )
+			else:
+				self.debugLog("Dissecting Topic")
+				statelesstopic = self.superBridgePatternIn.replace("{DeviceName}", indigo.devices[devID].name)
+				beforestate = statelesstopic.split("{State}")[0]
+				afterstate = statelesstopic.split("{State}")[1]
+				self.debugLog("BeforeState: " + beforestate)
+
+				self.debugLog("AfterState: " + afterstate)
+				state = msg.topic.replace(beforestate,"").replace(afterstate,"")
+				
+				self.debugLog("State Is " + state)
+				if state == "switch":
+					if msg.payload == True or str(msg.payload)== "on" or str(msg.payload)== "True":
+						self.debugLog("Turning On")
+						indigo.device.turnOn(devID)
+					elif msg.payload == False or str(msg.payload) == "off" or str(msg.payload)== "False":
+						self.debugLog("Turning Off")
+						indigo.device.turnOff(devID)
+					else:
+						elf.debugLog("Payload did not match any conditions.")
+				elif state == "level":
+					self.debugLog("setting brightness")
+					indigo.dimmer.setBrightness(devID, value=int(msg.payload))
+				elif state == "setpointHeatx":
+					self.debugLog("setting heat setpoint")
+					indigo.thermostat.setHeatSetpoint(devID, value=int(msg.payload))
+				else:
+					self.debugLog("Unsupported State")
+		if agID > 0:
+			self.debugLog("Executing Action Group " + str(agID))
+			indigo.actionGroup.execute(agID)
+		
+
+		
+
+			
+
 				
 
 	def closedDeviceConfigUi(self, valuesDict, userCancelled, typeId, devId):
@@ -214,7 +317,7 @@ class Plugin(indigo.PluginBase):
 		if action.deviceAction == indigo.kDeviceAction.TurnOn:
 				# Command hardware module (dev) to turn ON here:
 				payload = dev.pluginProps["payloadOn"]
-				self.client.publish(topic, payload, int(dev.pluginProps["qos"]), True)
+				self.publish(topic, payload, int(dev.pluginProps["qos"]), False)
 
 				sendSuccess = True		# Set to False if it failed.
 
@@ -232,7 +335,7 @@ class Plugin(indigo.PluginBase):
 		elif action.deviceAction == indigo.kDeviceAction.TurnOff:
 				# Command hardware module (dev) to turn OFF here:
 				payload = dev.pluginProps["payloadOff"]
-				self.client.publish(topic, payload)
+				self.publish(topic, payload)
 				sendSuccess = True		# Set to False if it failed.
 
 				if sendSuccess:

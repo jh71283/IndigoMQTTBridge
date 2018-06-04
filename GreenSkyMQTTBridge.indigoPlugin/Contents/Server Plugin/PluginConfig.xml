@@ -11,12 +11,36 @@
   <Field type="textfield" id="serverPort" defaultvalue="1883">
         <Label>MQTT Server Port:</Label>
     </Field>
+	 <Field type="textfield" id="serverUsername" defaultvalue="">
+        <Label>MQTT Server Username:</Label>
+    </Field>
+	 <Field type="textfield" id="serverPassword" defaultvalue="" secure="true">
+        <Label>MQTT Server Password:</Label>
+    </Field>
 <!--     <Field id="devicesToLog" type="list">
         <List class="indigo.devices"/>
 		<Label>Devices:</Label>
-	</Field> -->
+	</Field> 
+	<Field id="logAllTheThings" type="checkbox">
+		<Label>Enable MQTT Superbridge:</Label>
+		<Description>Echoes all device state changes to MQTT</Description>
+	</Field>-->
+	<Field id="superBridgePatternOut" type="textfield">
+		<Label>SuperBridge Pattern (out):</Label>
+		<Description>{DeviceName} will be replaced</Description>
+	</Field>
+		<Field id="superBridgePatternIn" type="textfield">
+		<Label>SuperBridge Pattern (in):</Label>
+		<Description>{DeviceName} will be replaced</Description>
+	</Field>
+	<Field id="superBridgePatternActionGroup" type="textfield">
+		<Label>SuperBridge Pattern (Action Groups):</Label>
+		<Description>{ActionGroup} will be replaced</Description>
+	</Field>
     <Field id="showDebugInfo" type="checkbox">
 		<Label>Enable debugging:</Label>
 		<Description>(not recommended)</Description>
 	</Field>
+
+	
 </PluginConfig>
