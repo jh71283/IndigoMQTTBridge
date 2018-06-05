@@ -20,8 +20,6 @@ import time
 import thread
 import datetime
 import paho.mqtt.client as mqtt
-import ptvsd
-ptvsd.enable_attach("my_secret", address = ('0.0.0.0', 3000))
 # Note the "indigo" module is automatically imported and made available inside
 # our global name space by the host process.
 
