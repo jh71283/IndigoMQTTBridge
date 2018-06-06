@@ -165,10 +165,7 @@ class Plugin(indigo.PluginBase):
 		deviceID=0
 		if self.topicList.has_key(topic) & self.topicList[topic].startswith("d:"):
 			deviceID = int( self.topicList[topic][2:])
-			self.debugLog('Device Dictionary Hit')
-		else:
-			self.debugLog('Device Dictionary Miss')
-
+		
 
 		return deviceID
 
@@ -176,9 +173,7 @@ class Plugin(indigo.PluginBase):
 		agID=0
 		if self.topicList.has_key(topic) & self.topicList[topic].startswith("ag:"):
 			agID = int(self.topicList[topic][3:])
-			self.debugLog('Action Group Dictionary Hit')
-		else:
-			self.debugLog('Action Group Dictionary Miss')
+
 
 
 		return agID
@@ -232,16 +227,21 @@ class Plugin(indigo.PluginBase):
 
 	# The callback for when a PUBLISH message is received from the server.
 	def on_message(self,client, userdata, msg):
-		self.debugLog("Message recd: " + msg.topic + " " + str(msg.payload))
+		self.debugLog("Message recd: " + msg.topic + " | " + str(msg.payload))
 		thread.start_new_thread(self.processMessage,(client,userdata,msg))
 	
 	def publish(self, topic, payload, qos=0, retain=False):
+		self.debugLog("Message sent: " + topic + " | " + str(payload))
 		self.client.publish(topic,payload,qos,retain)
 
 	def processMessage(self,client,userdata,msg):
-		self.debugLog("Processing Message " + str(msg))
+		#self.debugLog("Processing Message " + str(msg))
 		devID = self.getDeviceIDFromTopic(msg.topic)
 		agID = self.getActionGroupIDFromTopic(msg.topic)
+
+		if agID + devID == 0:
+			self.debugLog("Message did not match a known Device or Action Group.")
+
 		if devID > 0:
 			self.debugLog("DevID: "+ str(devID))
 			dev = indigo.devices[devID]
