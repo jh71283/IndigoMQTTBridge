@@ -143,14 +143,14 @@ class Plugin(indigo.PluginBase):
 		try:
 			self.topicList ={}
 			for dev in indigo.devices.iter("self"):
-				self.topicList[dev.pluginProps["stateTopic"]] = "d:" + str(dev.id)
+				self.topicList[dev.pluginProps["stateTopic"]] = "d:" + unicode(dev.id)
 				#self.debugLog("adding " + dev.pluginProps["stateTopic"] + " to topic list")
 
 			for dev in indigo.devices:
 
 				#self.topicList[self.superBridgePattern.replace("{DeviceName}", dev.name).replace('{State}','#')]= dev.id
-				self.topicList[self.superBridgePatternIn.replace("{DeviceName}", dev.name).replace('{State}','switch')]= "d:" + str(dev.id)
-				self.topicList[self.superBridgePatternIn.replace("{DeviceName}", dev.name).replace('{State}','level')]= "d:" + str(dev.id)
+				self.topicList[self.superBridgePatternIn.replace("{DeviceName}", dev.name).replace('{State}','switch')]= "d:" + unicode(dev.id)
+				self.topicList[self.superBridgePatternIn.replace("{DeviceName}", dev.name).replace('{State}','level')]= "d:" + unicode(dev.id)
 				#self.debugLog("adding " + mqttTopic + " to topic list")
 				#for state in dev.states:
 				#	mqttTopic = self.superBridgePattern.replace("{DeviceName}", dev.name.replace(" "," ")).replace('{State}',state)
@@ -159,7 +159,7 @@ class Plugin(indigo.PluginBase):
 			for ag in indigo.actionGroups:
 
 				#self.topicList[self.superBridgePattern.replace("{DeviceName}", dev.name).replace('{State}','#')]= dev.id
-				self.topicList[self.superBridgePatternActionGroup.replace("{ActionGroup}", ag.name)]= "ag:" + str(ag.id)
+				self.topicList[self.superBridgePatternActionGroup.replace("{ActionGroup}", ag.name)]= "ag:" + unicode(ag.id)
 				#self.debugLog("adding " + mqttTopic + " to topic list")
 				
 			#self.debugLog("Topic List:")
@@ -179,25 +179,29 @@ class Plugin(indigo.PluginBase):
 			indigo.PluginBase.deviceUpdated(self, origDev, newDev)
 			
 			ddiff = self.dict_diff(origDev.states, newDev.states)
-			#indigo.server.log("Device updated: " + str(ddiff))
+			dev = newDev.name
+			#indigo.server.log("Device updated: " + unicode(ddiff))
 			for state in ddiff.keys():
+				
+				mqttTopic= self.superBridgePatternOut.replace("{DeviceName}",dev).replace("{State}",state)
+				self.debugLog("Started processing update for " + mqttTopic )
 				newval = unicode(ddiff[state])
-				dev = newDev.name
+				
 				data = {}
 				data['deviceName'] = newDev.name
 				data['state'] = state
 				data['newValue'] = newval
 				data['oldValue'] = unicode(origDev.states[state])
-
-				if (state=='alertMode' & data['newValue'] == '' & data['oldValue']== 'none'):
+				val = json.dumps(data)
+				self.debugLog("json ready: " + val )
+				if (state=='alertMode' and data['newValue'] == '' and data['oldValue']== 'none'):
+					self.debugLog("Ignoring update for " + mqttTopic )
 					#This is a workaround for some odd behaviour in Hue Lights
 					continue
+				else:
+					self.debugLog("Publishing new Value for " + mqttTopic + ": " + val)
+					self.publish(mqttTopic,val)
 
-
-				val = json.dumps(data)
-				mqttTopic= self.superBridgePatternOut.replace("{DeviceName}",dev).replace("{State}",state)
-				self.debugLog("New Value for " + mqttTopic + ": " + val)
-				self.publish(mqttTopic,val)
 		except Exception:
 			t, v, tb = sys.exc_info()
 			handle_exception(t,v,tb)
@@ -277,7 +281,7 @@ class Plugin(indigo.PluginBase):
 	# The callback for when the client receives a CONNACK response from the server.
 	def on_connect(self, client, userdata, flags, rc):
 		try:
-			self.debugLog("Connected with result code " + str(rc))
+			self.debugLog("Connected with result code " + unicode(rc))
 			if rc ==0:
 				#self.client.subscribe("$SYS/#")
 				self.connected=True
@@ -336,7 +340,7 @@ class Plugin(indigo.PluginBase):
 
 	def processMessage(self,client,userdata,msg):
 		try:
-			#self.debugLog("Processing Message " + str(msg))
+			#self.debugLog("Processing Message " + unicode(msg))
 			devID = self.getDeviceIDFromTopic(msg.topic)
 			agID = self.getActionGroupIDFromTopic(msg.topic)
 
@@ -344,7 +348,7 @@ class Plugin(indigo.PluginBase):
 				self.debugLog("Message did not match a known Device or Action Group.")
 
 			if devID > 0:
-				self.debugLog("DevID: "+ str(devID))
+				self.debugLog("DevID: "+ unicode(devID))
 				dev = indigo.devices[devID]
 
 				self.debugLog("Matched Device: " + unicode(dev.name))
@@ -379,10 +383,10 @@ class Plugin(indigo.PluginBase):
 					
 					self.debugLog("State Is " + state)
 					if state == "switch":
-						if msg.payload == True or str(msg.payload)== "on" or str(msg.payload)== "True":
+						if msg.payload == True or unicode(msg.payload)== "on" or unicode(msg.payload)== "True":
 							self.debugLog("Turning On")
 							indigo.device.turnOn(devID)
-						elif msg.payload == False or str(msg.payload) == "off" or str(msg.payload)== "False":
+						elif msg.payload == False or unicode(msg.payload) == "off" or unicode(msg.payload)== "False":
 							self.debugLog("Turning Off")
 							indigo.device.turnOff(devID)
 						else:
@@ -396,7 +400,7 @@ class Plugin(indigo.PluginBase):
 					else:
 						self.debugLog("Unsupported State")
 			if agID > 0:
-				self.debugLog("Executing Action Group " + str(agID))
+				self.debugLog("Executing Action Group " + unicode(agID))
 				indigo.actionGroup.execute(agID)
 		except Exception:
 			t, v, tb = sys.exc_info()
