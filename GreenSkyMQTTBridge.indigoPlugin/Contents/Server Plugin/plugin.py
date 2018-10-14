@@ -20,13 +20,16 @@ import time
 import thread
 import datetime
 import paho.mqtt.client as mqtt
+import json
 # Note the "indigo" module is automatically imported and made available inside
 # our global name space by the host process.
 from raygun4py import raygunprovider
 
+
 def handle_exception(exc_type, exc_value, exc_traceback):
   cl = raygunprovider.RaygunSender("fsf/EFrrM7efzeAxZjgpeQ==")
   cl.send_exception(exc_info=(exc_type, exc_value, exc_traceback))
+
 
 class Plugin(indigo.PluginBase):
 	########################################
@@ -85,11 +88,17 @@ class Plugin(indigo.PluginBase):
 			self.populateTopicList()
 			self.client.disconnect()
 			self.client.username_pw_set(username=self.username,password=self.password)
-			self.client.connect(self.MQTT_SERVER, self.MQTT_PORT, 59)	
+			self.client.connect(self.MQTT_SERVER, self.MQTT_PORT, 59)
+
 			self.client.loop_start()
 		except Exception:
 			t, v, tb = sys.exc_info()
-			handle_exception(t,v,tb)
+			if v == "[Errno 61] Connection refused":
+				indigo.server.log("Connection Refused when connecting to broker.")
+			elif v == "[Errno 60] Operation timed out":
+				indigo.server.log("Timeout when connecting to broker.")
+			else:
+				handle_exception(t,v,tb)
 		
 	def devicesList(self, filter="", valuesDict=None, typeId="", targetId=0):
 		try:
@@ -168,15 +177,27 @@ class Plugin(indigo.PluginBase):
 		try:
 			# call the base's implementation first just to make sure all the right things happen elsewhere
 			indigo.PluginBase.deviceUpdated(self, origDev, newDev)
-			if str(newDev.id) in self.DevicesToLog:
-				ddiff = self.dict_diff(origDev.states, newDev.states)
-				#indigo.server.log("Device updated: " + str(ddiff))
-				for state in ddiff.keys():
-					val = unicode(ddiff[state])
-					dev = newDev.name
-					mqttTopic= self.superBridgePatternOut.replace("{DeviceName}",dev).replace("{State}",state)
-					self.debugLog("New Value for " + mqttTopic + ": " + val)
-					self.publish(mqttTopic,val)
+			
+			ddiff = self.dict_diff(origDev.states, newDev.states)
+			#indigo.server.log("Device updated: " + str(ddiff))
+			for state in ddiff.keys():
+				newval = unicode(ddiff[state])
+				dev = newDev.name
+				data = {}
+				data['deviceName'] = newDev.name
+				data['state'] = state
+				data['newValue'] = newval
+				data['oldValue'] = unicode(origDev.states[state])
+
+				if (state=='alertMode' & data['newValue'] == '' & data['oldValue']== 'none'):
+					#This is a workaround for some odd behaviour in Hue Lights
+					continue
+
+
+				val = json.dumps(data)
+				mqttTopic= self.superBridgePatternOut.replace("{DeviceName}",dev).replace("{State}",state)
+				self.debugLog("New Value for " + mqttTopic + ": " + val)
+				self.publish(mqttTopic,val)
 		except Exception:
 			t, v, tb = sys.exc_info()
 			handle_exception(t,v,tb)
@@ -263,6 +284,18 @@ class Plugin(indigo.PluginBase):
 				for topic in self.topicList:
 					self.client.subscribe(topic)
 					self.debugLog("Subscribing to " + topic)
+
+				autoDiscoverTopic = "/GS-Indigo-Autodiscover"
+
+				data = {}
+				data['superBridgePatternIn'] = self.superBridgePatternIn
+				data['superBridgePatternOut'] = self.superBridgePatternOut
+				data['superBridgePatternActionGroup'] = self.superBridgePatternActionGroup
+				self.debugLog('Publishing AutoDiscover information to ' + autoDiscoverTopic)
+				json_data = json.dumps(data)
+				
+				self.publish(autoDiscoverTopic,json_data,0,True)
+
 			if rc ==1:
 				indigo.server.log("Error: Invalid Protocol Version.")
 			if rc ==2:
@@ -276,6 +309,7 @@ class Plugin(indigo.PluginBase):
 				indigo.server.log("Error: Not Authorised.")
 		except Exception:
 			t, v, tb = sys.exc_info()
+			self.debugLog({t, v, tb})
 			handle_exception(t,v,tb)
 
 	def on_disconnect(self):
@@ -286,7 +320,7 @@ class Plugin(indigo.PluginBase):
 	# The callback for when a PUBLISH message is received from the server.
 	def on_message(self,client, userdata, msg):
 		try:
-			self.debugLog("Message recd: " + msg.topic + " | " + str(msg.payload))
+			self.debugLog("Message recd: " + msg.topic + " | " + unicode(msg.payload))
 			thread.start_new_thread(self.processMessage,(client,userdata,msg))
 		except Exception:
 			t, v, tb = sys.exc_info()
@@ -294,7 +328,7 @@ class Plugin(indigo.PluginBase):
 	
 	def publish(self, topic, payload, qos=0, retain=False):
 		try:
-			self.debugLog("Message sent: " + topic + " | " + str(payload))
+			self.debugLog("Message sent: " + topic + " | " + unicode(payload))
 			self.client.publish(topic,payload,qos,retain)
 		except Exception:
 			t, v, tb = sys.exc_info()
