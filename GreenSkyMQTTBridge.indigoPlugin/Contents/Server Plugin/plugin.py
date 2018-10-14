@@ -25,9 +25,10 @@ import json
 # our global name space by the host process.
 from raygun4py import raygunprovider
 
-
+pVer = 0
 def handle_exception(exc_type, exc_value, exc_traceback):
   cl = raygunprovider.RaygunSender("fsf/EFrrM7efzeAxZjgpeQ==")
+  cl.set_version(pVer)
   cl.send_exception(exc_info=(exc_type, exc_value, exc_traceback))
 
 
@@ -38,7 +39,7 @@ class Plugin(indigo.PluginBase):
 
 	def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs):
 		indigo.PluginBase.__init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
-
+		pVer = pluginVersion
 		#ptvsd.enable_attach("my_secret", address = ('0.0.0.0', 3000))
 		self.MQTT_SERVER = ''
 		self.MQTT_PORT = 0
