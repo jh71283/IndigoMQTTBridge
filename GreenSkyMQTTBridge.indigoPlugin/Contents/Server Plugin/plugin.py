@@ -287,8 +287,9 @@ class Plugin(indigo.PluginBase):
 				#self.client.subscribe("$SYS/#")
 				self.connected=True
 				for topic in self.topicList:
-					self.client.subscribe(topic)
-					self.debugLog("Subscribing to " + topic)
+					t = unicode(topic)
+					self.client.subscribe(t)
+					self.debugLog("Subscribing to " + t)
 
 				autoDiscoverTopic = "/GS-Indigo-Autodiscover"
 
