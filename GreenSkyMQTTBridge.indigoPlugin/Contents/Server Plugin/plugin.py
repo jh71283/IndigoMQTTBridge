@@ -152,7 +152,6 @@ class Plugin(indigo.PluginBase):
             self.topicList = {}
             for dev in indigo.devices.iter(u"self"):
                 self.topicList[dev.pluginProps[u"stateTopic"]] = u"d:" + unicode(dev.id)
-
             for dev in indigo.devices:
                 self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", dev.name).replace(u'{State}',
                                                                                                    u'switch')] = u"d:" + unicode(
@@ -160,9 +159,18 @@ class Plugin(indigo.PluginBase):
                 self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", dev.name).replace(u'{State}',
                                                                                                    u'level')] = u"d:" + unicode(
                     dev.id)
+                self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", unicode(dev.id)).replace(u'{State}',
+                                                                                                    u'switch')] = u"d:" + unicode(
+                    dev.id)
+                self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", unicode(dev.id)).replace(u'{State}',
+                                                                                                    u'level')] = u"d:" + unicode(
+                    dev.id)
 
             for ag in indigo.actionGroups:
                 self.topicList[self.superBridgePatternActionGroup.replace(u"{ActionGroup}", ag.name)] = u"ag:" + unicode(
+                    ag.id)
+                self.topicList[
+                    self.superBridgePatternActionGroup.replace(u"{ActionGroup}", unicode(ag.id))] = u"ag:" + unicode(
                     ag.id)
 
         except Exception:
@@ -180,11 +188,15 @@ class Plugin(indigo.PluginBase):
 
             ddiff = self.dict_diff(origDev.states, newDev.states)
             dev = newDev.name
+            devid = unicode(newDev.id)
             # indigo.server.log(u"Device updated: " + unicode(ddiff))
             for state in ddiff.keys():
 
                 mqttTopic = self.superBridgePatternOut.replace(u"{DeviceName}", dev).replace(u"{State}", state)
+                mqttTopic2 = self.superBridgePatternOut.replace(u"{DeviceName}", devid).replace(u"{State}", state)
+
                 self.debugLog(u"Started processing update for " + mqttTopic)
+                self.debugLog(u"Started processing update for " + mqttTopic2)
                 newval = unicode(ddiff[state])
 
                 data = {u'deviceName': newDev.name, u'state': state, u'newValue': newval}
@@ -203,6 +215,8 @@ class Plugin(indigo.PluginBase):
                 else:
                     self.debugLog(u"Publishing new Value for " + mqttTopic + u": " + val)
                     self.publish(mqttTopic, val)
+                    self.debugLog(u"Publishing new Value for " + mqttTopic2 + u": " + val)
+                    self.publish(mqttTopic2, val)
 
         except Exception:
             t, v, tb = sys.exc_info()
@@ -298,9 +312,24 @@ class Plugin(indigo.PluginBase):
 
                 autoDiscoverTopic = u"/GS-Indigo-Autodiscover"
 
+                devicesdict = []
+                for device in indigo.devices:
+                    devicesdict.append({'id':device.id, 'name':  unicode(device.name)})
+
+                actionsdict = []
+                for action in indigo.actionGroups:
+                    actionsdict.append({'id': action.id, 'name': unicode(action.name)})
+
+                variablesdict = []
+                for variable in indigo.variables:
+                    variablesdict.append({'id': variable.id, 'name': unicode(variable.name)})
+
                 data = {u'superBridgePatternIn': self.superBridgePatternIn,
                         u'superBridgePatternOut': self.superBridgePatternOut,
-                        u'superBridgePatternActionGroup': self.superBridgePatternActionGroup}
+                        u'superBridgePatternActionGroup': self.superBridgePatternActionGroup,
+                        u'devices': devicesdict,
+                        u'variables': variablesdict,
+                        u'actions': actionsdict}
 
                 self.debugLog(u'Publishing AutoDiscover information to ' + autoDiscoverTopic)
                 json_data = json.dumps(data)
