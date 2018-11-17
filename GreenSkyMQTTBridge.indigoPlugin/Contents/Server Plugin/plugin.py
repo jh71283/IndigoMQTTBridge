@@ -153,25 +153,13 @@ class Plugin(indigo.PluginBase):
             for dev in indigo.devices.iter(u"self"):
                 self.topicList[dev.pluginProps[u"stateTopic"]] = u"d:" + unicode(dev.id)
             for dev in indigo.devices:
-                self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", dev.name).replace(u'{State}',
-                                                                                                   u'switch')] = u"d:" + unicode(
-                    dev.id)
-                self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", dev.name).replace(u'{State}',
-                                                                                                   u'level')] = u"d:" + unicode(
-                    dev.id)
-                self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", unicode(dev.id)).replace(u'{State}',
-                                                                                                    u'switch')] = u"d:" + unicode(
-                    dev.id)
-                self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", unicode(dev.id)).replace(u'{State}',
-                                                                                                    u'level')] = u"d:" + unicode(
-                    dev.id)
-
+                self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", dev.name).replace(u'{State}', u'switch')]        = u"d:" + unicode(dev.id)
+                self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", dev.name).replace(u'{State}', u'level')]         = u"d:" + unicode(dev.id)
+                self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", unicode(dev.id)).replace(u'{State}', u'switch')] = u"d:" + unicode(dev.id)
+                self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", unicode(dev.id)).replace(u'{State}', u'level')]  = u"d:" + unicode(dev.id)
             for ag in indigo.actionGroups:
-                self.topicList[self.superBridgePatternActionGroup.replace(u"{ActionGroup}", ag.name)] = u"ag:" + unicode(
-                    ag.id)
-                self.topicList[
-                    self.superBridgePatternActionGroup.replace(u"{ActionGroup}", unicode(ag.id))] = u"ag:" + unicode(
-                    ag.id)
+                self.topicList[self.superBridgePatternActionGroup.replace(u"{ActionGroup}", ag.name)] = u"ag:" + unicode(ag.id)
+                self.topicList[self.superBridgePatternActionGroup.replace(u"{ActionGroup}", unicode(ag.id))] = u"ag:" + unicode(ag.id)
 
         except Exception:
             t, v, tb = sys.exc_info()
@@ -292,6 +280,22 @@ class Plugin(indigo.PluginBase):
             t, v, tb = sys.exc_info()
             self.handle_exception(t, v, tb)
 
+    def extract_json_value(self, data, path):
+        if type(data) is not dict:
+            working_data = json.loads(data)
+        else:
+            working_data = data.copy()
+        keys = path.split('->')
+        for k in keys:
+            try:
+                self.debugLog("Looking for %s in %s" % (k, working_data))
+                working_data = working_data[k]
+            except:
+                self.errorLog("Unable to extract data using path '%s'" % path)
+                return None
+        self.debugLog("extracted: %s" % working_data)
+        return working_data
+
     # The callback for when the client receives a CONNACK response from the server.
     def on_connect(self, client, userdata, flags, rc):
         try:
@@ -404,8 +408,12 @@ class Plugin(indigo.PluginBase):
                         dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
 
                 elif dev.deviceTypeId == u"MQTTSensor":
-                    dev.updateStateOnServer(u"display", msg.payload + dev.pluginProps[u"unit"])
-                    dev.updateStateOnServer(u"sensorValue", msg.payload)
+                    value = msg.payload
+                    if dev.pluginProps[u"payloadExtraction"] is not "":
+                        self.debugLog("using '%s' to extract the payload" % dev.pluginProps[u"payloadExtraction"])
+                        value = self.extract_json_value(msg.payload, dev.pluginProps[u"payloadExtraction"])
+                    dev.updateStateOnServer(u"display", u"%s%s" % (value, dev.pluginProps[u"unit"]))
+                    dev.updateStateOnServer(u"sensorValue", (value))
                 else:
                     self.debugLog(u"Dissecting Topic")
                     statelesstopic = self.superBridgePatternIn.replace(u"{DeviceName}", indigo.devices[devID].name)
