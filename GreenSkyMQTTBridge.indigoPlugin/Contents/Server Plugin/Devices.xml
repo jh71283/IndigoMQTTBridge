@@ -83,6 +83,9 @@
 			<Field id="stateTopic" type="textfield" defaultValue="">
 				<Label>State Topic:</Label>
 			</Field>
+			<Field id="payloadExtraction" type="textfield" defaultValue="">
+				<Label>Payload Extraction:</Label>
+			</Field>
 			<Field id="unit" type="textfield" defaultValue="">
 				<Label>Unit:</Label>
 			</Field>
