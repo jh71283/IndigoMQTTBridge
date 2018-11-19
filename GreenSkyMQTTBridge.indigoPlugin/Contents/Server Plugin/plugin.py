@@ -436,8 +436,8 @@ class Plugin(indigo.PluginBase):
 		    self.debugLog("After Offset: %s" % value)
 
 		    indigo.server.log("%s set to %s" % (dev.name, value))
-                    dev.updateStateOnServer(u"display", u"%s%s" % (value, dev.pluginProps[u"unit"]))
-                    dev.updateStateOnServer(u"sensorValue", (value))
+                    dev.updateStateOnServer(u"display", u"%s%s" % (round(value, dev.pluginProps[u"precision"]), dev.pluginProps[u"unit"]))
+                    dev.updateStateOnServer(u"sensorValue", value=value, decimalPlaces=dev.pluginProps[u"precision"])
                 elif dev.deviceTypeId == u"MQTTWeatherSensor":
                     temperature = None
                     humidity = None
