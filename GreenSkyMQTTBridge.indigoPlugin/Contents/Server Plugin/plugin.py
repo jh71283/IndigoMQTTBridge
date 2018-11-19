@@ -74,8 +74,7 @@ class Plugin(indigo.PluginBase):
         self.DevicesToLog = prefs.get(u"devicesToLog", [])
         self.superBridgePatternOut = prefs.get(u"superBridgePatternOut", u'indigo/devices/{DeviceName}/{State}')
         self.superBridgePatternIn = prefs.get(u"superBridgePatternIn", u'indigo/devices/{DeviceName}/{State}/set')
-        self.superBridgePatternActionGroup = prefs.get(u"superBridgePatternActionGroup",
-                                                       u'indigo/actionGroups/{ActionGroup}/execute')
+        self.superBridgePatternActionGroup = prefs.get(u"superBridgePatternActionGroup", u'indigo/actionGroups/{ActionGroup}/execute')
 
         if self.debug:
             self.debugLog(u"logger debugging enabled")
@@ -178,6 +177,7 @@ class Plugin(indigo.PluginBase):
             dev = newDev.name
             devid = unicode(newDev.id)
             # indigo.server.log(u"Device updated: " + unicode(ddiff))
+
             for state in ddiff.keys():
 
                 mqttTopic = self.superBridgePatternOut.replace(u"{DeviceName}", dev).replace(u"{State}", state)
@@ -390,30 +390,120 @@ class Plugin(indigo.PluginBase):
                 self.debugLog(u"DevID: " + unicode(devID))
                 dev = indigo.devices[devID]
 
-                self.debugLog(u"Matched Device: " + unicode(dev.name))
+                #self.debugLog(u"Matched Device: " + unicode(dev.name))
+		indigo.server.logLog("%s recieved mqtt message from %s" % (dev.name, msg.topic))
+		self.debugLog("payload: %s" % msg.payload)
                 if dev.deviceTypeId == u"MQTTrelay":
                     if msg.payload == dev.pluginProps[u"payloadOn"]:
+			indigo.server.log("%s set to On" % dev.name)
                         dev.updateStateOnServer(u"onOffState", True)
                     if msg.payload == dev.pluginProps[u"payloadOff"]:
+			indigo.server.log("%s set to Off" % dev.name)
                         dev.updateStateOnServer(u"onOffState", False)
                 elif dev.deviceTypeId == u"MQTTBinarySensor":
                     if msg.payload == dev.pluginProps[u"payloadOn"]:
+			indigo.server.log("%s set to On" % dev.name)
                         dev.updateStateOnServer(u"onOffState", True)
                         dev.updateStateOnServer(u"display", u"on")
                         dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOn)
-
                     if msg.payload == dev.pluginProps[u"payloadOff"]:
+			indigo.server.log("%s set to Off" % dev.name)
                         dev.updateStateOnServer(u"onOffState", False)
                         dev.updateStateOnServer(u"display", u"off")
                         dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
-
                 elif dev.deviceTypeId == u"MQTTSensor":
                     value = msg.payload
+		    offset = float(dev.pluginProps[u"offset"]) if dev.pluginProps[u"offset"] else 0
+
+		    # Get data from the payload
                     if dev.pluginProps[u"payloadExtraction"] is not "":
                         self.debugLog("using '%s' to extract the payload" % dev.pluginProps[u"payloadExtraction"])
                         value = self.extract_json_value(msg.payload, dev.pluginProps[u"payloadExtraction"])
+
+		    self.debugLog("Got data: %s" % value)
+
+		    # Apply Formula
+		    if dev.pluginProps[u"formula"]:
+			x = value
+			value = eval(dev.pluginProps[u"formula"])
+
+		    self.debugLog("After Formula: %s" % value)
+
+		    # Apply Offset
+		    if offset is not None and value is not None:
+			value+=offset
+
+		    self.debugLog("After Offset: %s" % value)
+
+		    indigo.server.log("%s set to %s" % (dev.name, value))
                     dev.updateStateOnServer(u"display", u"%s%s" % (value, dev.pluginProps[u"unit"]))
                     dev.updateStateOnServer(u"sensorValue", (value))
+                elif dev.deviceTypeId == u"MQTTWeatherSensor":
+                    temperature = None
+                    humidity = None
+                    pressure = None
+                    temperatureUnit = dev.pluginProps[u"temperatureUnit"]
+                    humidityUnit = dev.pluginProps[u"humidityUnit"]
+                    pressureUnit = dev.pluginProps[u"pressureUnit"]
+                    temperatureOffset = float(dev.pluginProps[u"temperatureOffset"]) if dev.pluginProps[u"temperatureOffset"] else 0
+                    humidityOffset = float(dev.pluginProps[u"humidityOffset"]) if dev.pluginProps[u"humidityOffset"] else 0
+                    pressureOffset = float(dev.pluginProps[u"pressureOffset"]) if dev.pluginProps[u"pressureOffset"] else 0
+                    temperaturePrecision = int(dev.pluginProps[u"temperaturePrecision"]) if dev.pluginProps[u"temperaturePrecision"] else 0
+                    humidityPrecision = int(dev.pluginProps[u"humidityPrecision"]) if dev.pluginProps[u"humidityPrecision"] else 0
+                    pressurePrecision = int(dev.pluginProps[u"pressurePrecision"]) if dev.pluginProps[u"pressurePrecision"] else 0
+
+		    self.debugLog("%s / %s / %s" % (temperature, humidity, pressure))
+                    
+                    # Get the data from the payload
+                    if dev.pluginProps[u"temperaturePayloadExtraction"]:
+                        self.debugLog("using '%s' to extract temperature from the payload" % dev.pluginProps[u"temperaturePayloadExtraction"])
+                        temperature = self.extract_json_value(msg.payload, dev.pluginProps[u"temperaturePayloadExtraction"])
+                    if dev.pluginProps[u"humidityPayloadExtraction"]:
+                        self.debugLog("using '%s' to extract humidity from the payload" % dev.pluginProps[u"humidityPayloadExtraction"])
+                        humidity = self.extract_json_value(msg.payload, dev.pluginProps[u"humidityPayloadExtraction"])
+                    if dev.pluginProps[u"pressurePayloadExtraction"]:
+                        self.debugLog("using '%s' to extract pressure from the payload" % dev.pluginProps[u"pressurePayloadExtraction"])
+                        pressure = self.extract_json_value(msg.payload, dev.pluginProps[u"pressurePayloadExtraction"])
+                   
+		    self.debugLog("Got data: %s / %s / %s" % (temperature, humidity, pressure))
+ 
+                    # Apply Formulas
+                    if dev.pluginProps[u"temperatureFormula"]:
+			x = temperature
+			temperature = eval(dev.pluginProps[u"temperatureFormula"])
+                    if dev.pluginProps[u"humidityFormula"]:
+			x = humidity
+                        humidity = eval(dev.pluginProps[u"humidityFormula"])
+                    if dev.pluginProps[u"pressureFormula"]:
+			x = pressure
+                        pressure = eval(dev.pluginProps[u"pressureFormula"])
+
+		    self.debugLog("After Formulas: %s / %s / %s" % (temperature, humidity, pressure))
+                    
+                    # Apply offsets
+                    if temperatureOffset is not None and temperature is not None:
+                        temperature+=temperatureOffset
+                    if humidityOffset is not None and humidity is not None:
+                        humidity+=humidityOffset
+                    if pressureOffset is not None and pressure is not None:
+                        pressure+=pressureOffset
+
+		    self.debugLog("After Offsets: %s / %s / %s" % (temperature, humidity, pressure))
+                            
+                    status = []
+                    if temperature is not None:
+                        dev.updateStateOnServer('temperature', value=temperature, decimalPlaces=temperaturePrecision)
+                        status.append("%s%s" % (round(temperature, temperaturePrecision), temperatureUnit))
+                    if humidity is not None:
+                        dev.updateStateOnServer('humidity', value=humidity, decimalPlaces=humidityPrecision)
+                        status.append("%s%s" % (round(humidity, humidityPrecision), humidityUnit))
+                    if pressure is not None:
+                        dev.updateStateOnServer('pressure', value=pressure, decimalPlaces=pressurePrecision)
+                        status.append("%s%s" % (round(pressure, pressurePrecision), pressureUnit))
+                    if len(status) is not 0:
+			indigo.server.log("%s set to %s" % (dev.name, ' / '.join(status)))
+			dev.updateStateOnServer('status', ' / '.join(status), uiValue=' / '.join(status))
+			dev.updateStateImageOnServer(indigo.kStateImageSel.TemperatureSensorOn)
                 else:
                     self.debugLog(u"Dissecting Topic")
                     statelesstopic = self.superBridgePatternIn.replace(u"{DeviceName}", indigo.devices[devID].name)
@@ -454,6 +544,11 @@ class Plugin(indigo.PluginBase):
     def closedDeviceConfigUi(self, valuesDict, userCancelled, typeId, devId):
         self.client.subscribe(valuesDict[u"stateTopic"])
         self.connectToMQTTBroker()
+	#dev = indigo.devices[devId]
+	#if dev.deviceTypeId in [u"MQTTrelay", u"MQTTBinarySensor", u"MQTTSensor", u"MQTTWeatherSensor"]:
+	    #props = dev.pluginProps
+            #props.update({"address": props["stateTopic"]})
+            #dev.replacePluginPropsOnServer(props)
 
     def actionControlDevice(self, action, dev):
         try:
