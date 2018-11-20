@@ -82,7 +82,7 @@ class Plugin(indigo.PluginBase):
             self.debugLog(u"logger debugging disabled")
 
     def handle_exception(self, exc_type, exc_value, exc_traceback):
-        self.debugLog(u'Exception trapped:' + unicode(exc_value))
+        self.logger.error(u'Exception trapped:' + unicode(exc_value))
 
     def runConcurrentThread(self):
         while True:
@@ -93,18 +93,21 @@ class Plugin(indigo.PluginBase):
 
     def connectToMQTTBroker(self):
         try:
+            self.logger.info("Connecting to the MQTT Server...")
             self.populateTopicList()
             self.client.disconnect()
+            self.client.loop_stop()
             self.client.username_pw_set(username=self.username, password=self.password)
             self.client.connect(self.MQTT_SERVER, self.MQTT_PORT, 59)
+            self.logger.info("Connected!")
 
             self.client.loop_start()
         except Exception:
             t, v, tb = sys.exc_info()
             if v.errno == 61:
-                indigo.server.log(u"Connection Refused when connecting to broker.")
+                self.logger.critical(u"Connection Refused when connecting to broker.")
             elif v.errno == 60:
-                indigo.server.log(u"Timeout when connecting to broker.")
+                self.logger.error(u"Timeout when connecting to broker.")
             else:
                 self.handle_exception(t, v, tb)
                 raise
@@ -152,10 +155,10 @@ class Plugin(indigo.PluginBase):
             for dev in indigo.devices.iter(u"self"):
                 self.topicList[dev.pluginProps[u"stateTopic"]] = u"d:" + unicode(dev.id)
             for dev in indigo.devices:
-                self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", dev.name).replace(u'{State}', u'switch')]        = u"d:" + unicode(dev.id)
-                self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", dev.name).replace(u'{State}', u'level')]         = u"d:" + unicode(dev.id)
+                self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", dev.name).replace(u'{State}', u'switch')] = u"d:" + unicode(dev.id)
+                self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", dev.name).replace(u'{State}', u'level')] = u"d:" + unicode(dev.id)
                 self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", unicode(dev.id)).replace(u'{State}', u'switch')] = u"d:" + unicode(dev.id)
-                self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", unicode(dev.id)).replace(u'{State}', u'level')]  = u"d:" + unicode(dev.id)
+                self.topicList[self.superBridgePatternIn.replace(u"{DeviceName}", unicode(dev.id)).replace(u'{State}', u'level')] = u"d:" + unicode(dev.id)
             for ag in indigo.actionGroups:
                 self.topicList[self.superBridgePatternActionGroup.replace(u"{ActionGroup}", ag.name)] = u"ag:" + unicode(ag.id)
                 self.topicList[self.superBridgePatternActionGroup.replace(u"{ActionGroup}", unicode(ag.id))] = u"ag:" + unicode(ag.id)
@@ -288,12 +291,12 @@ class Plugin(indigo.PluginBase):
         keys = path.split('->')
         for k in keys:
             try:
-                self.debugLog("Looking for %s in %s" % (k, working_data))
+                self.logger.debug("Looking for %s in %s" % (k, working_data))
                 working_data = working_data[k]
             except:
-                self.errorLog("Unable to extract data using path '%s'" % path)
+                self.logger.error("Unable to extract data using path '%s'" % path)
                 return None
-        self.debugLog("extracted: %s" % working_data)
+        self.logger.debug("extracted: %s" % working_data)
         return working_data
 
     # The callback for when the client receives a CONNACK response from the server.
@@ -310,15 +313,13 @@ class Plugin(indigo.PluginBase):
                     try:
                         self.client.subscribe(t)
                     except UnicodeDecodeError:
-                        indigo.server.log(u'Failed to subscribe to ' + t + u' as it contains non-ascii characters.')
-
-
+                        self.logger.warn(u'Failed to subscribe to ' + t + u' as it contains non-ascii characters.')
 
                 autoDiscoverTopic = u"/GS-Indigo-Autodiscover"
 
                 devicesdict = []
                 for device in indigo.devices:
-                    devicesdict.append({'id':device.id, 'name':  unicode(device.name)})
+                    devicesdict.append({'id': device.id, 'name': unicode(device.name)})
 
                 actionsdict = []
                 for action in indigo.actionGroups:
@@ -357,7 +358,7 @@ class Plugin(indigo.PluginBase):
             self.handle_exception(t, v, tb)
 
     def on_disconnect(self):
-        self.debugLog(u"Disconnected from Broker. ")
+        self.logger.warn(u"Disconnected from Broker. ")
         self.connected = False
 
     # The callback for when a PUBLISH message is received from the server.
@@ -371,7 +372,7 @@ class Plugin(indigo.PluginBase):
 
     def publish(self, topic, payload, qos=0, retain=False):
         try:
-            self.debugLog(u"Message sent: " + topic + " | " + unicode(payload))
+            self.logger.debug(u"Message sent: " + topic + " | " + unicode(payload))
             self.client.publish(topic, payload, qos, retain)
         except Exception:
             t, v, tb = sys.exc_info()
@@ -390,54 +391,54 @@ class Plugin(indigo.PluginBase):
                 self.debugLog(u"DevID: " + unicode(devID))
                 dev = indigo.devices[devID]
 
-                #self.debugLog(u"Matched Device: " + unicode(dev.name))
-		indigo.server.logLog("%s recieved mqtt message from %s" % (dev.name, msg.topic))
-		self.debugLog("payload: %s" % msg.payload)
+                # self.debugLog(u"Matched Device: " + unicode(dev.name))
+                #self.logger.info("%s recieved mqtt message from %s" % (dev.name, msg.topic))
+                self.logger.debug("payload: %s" % msg.payload)
                 if dev.deviceTypeId == u"MQTTrelay":
                     if msg.payload == dev.pluginProps[u"payloadOn"]:
-			indigo.server.log("%s set to On" % dev.name)
+                        indigo.server.log("%s set to On" % dev.name)
                         dev.updateStateOnServer(u"onOffState", True)
                     if msg.payload == dev.pluginProps[u"payloadOff"]:
-			indigo.server.log("%s set to Off" % dev.name)
+                        indigo.server.log("%s set to Off" % dev.name)
                         dev.updateStateOnServer(u"onOffState", False)
                 elif dev.deviceTypeId == u"MQTTBinarySensor":
                     if msg.payload == dev.pluginProps[u"payloadOn"]:
-			indigo.server.log("%s set to On" % dev.name)
+                        indigo.server.log("%s set to On" % dev.name)
                         dev.updateStateOnServer(u"onOffState", True)
                         dev.updateStateOnServer(u"display", u"on")
                         dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOn)
                     if msg.payload == dev.pluginProps[u"payloadOff"]:
-			indigo.server.log("%s set to Off" % dev.name)
+                        indigo.server.log("%s set to Off" % dev.name)
                         dev.updateStateOnServer(u"onOffState", False)
                         dev.updateStateOnServer(u"display", u"off")
                         dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
                 elif dev.deviceTypeId == u"MQTTSensor":
                     value = msg.payload
-		    offset = float(dev.pluginProps[u"offset"]) if dev.pluginProps[u"offset"] else 0
+                    offset = float(dev.pluginProps[u"offset"]) if dev.pluginProps[u"offset"] else 0
+                    precision = int(dev.pluginProps[u"precision"]) if dev.pluginProps[u"precision"] else 0
 
-		    # Get data from the payload
+                    # Get data from the payload
                     if dev.pluginProps[u"payloadExtraction"] is not "":
-                        self.debugLog("using '%s' to extract the payload" % dev.pluginProps[u"payloadExtraction"])
                         value = self.extract_json_value(msg.payload, dev.pluginProps[u"payloadExtraction"])
 
-		    self.debugLog("Got data: %s" % value)
+                    self.logger.debug("Got data: %s" % value)
 
-		    # Apply Formula
-		    if dev.pluginProps[u"formula"]:
-			x = value
-			value = eval(dev.pluginProps[u"formula"])
+                    # Apply Formula
+                    if dev.pluginProps[u"formula"]:
+                        x = value
+                        value = eval(dev.pluginProps[u"formula"])
 
-		    self.debugLog("After Formula: %s" % value)
+                    self.logger.debug("After Formula: %s" % value)
 
-		    # Apply Offset
-		    if offset is not None and value is not None:
-			value+=offset
+                    # Apply Offset
+                    if offset is not None and value is not None:
+                        value += offset
 
-		    self.debugLog("After Offset: %s" % value)
+                    self.logger.debug("After Offset: %s" % value)
 
-		    indigo.server.log("%s set to %s" % (dev.name, value))
-                    dev.updateStateOnServer(u"display", u"%s%s" % (round(value, dev.pluginProps[u"precision"]), dev.pluginProps[u"unit"]))
-                    dev.updateStateOnServer(u"sensorValue", value=value, decimalPlaces=dev.pluginProps[u"precision"])
+                    status = "%s%s" % (round(value, precision), dev.pluginProps[u"unit"])
+                    self.logger.info("%s set to %s" % (dev.name, status))
+                    dev.updateStateOnServer(u"sensorValue", value=value, decimalPlaces=precision, uiValue=status)
                 elif dev.deviceTypeId == u"MQTTWeatherSensor":
                     temperature = None
                     humidity = None
@@ -452,58 +453,56 @@ class Plugin(indigo.PluginBase):
                     humidityPrecision = int(dev.pluginProps[u"humidityPrecision"]) if dev.pluginProps[u"humidityPrecision"] else 0
                     pressurePrecision = int(dev.pluginProps[u"pressurePrecision"]) if dev.pluginProps[u"pressurePrecision"] else 0
 
-		    self.debugLog("%s / %s / %s" % (temperature, humidity, pressure))
-                    
+                    self.logger.debug("%s / %s / %s" % (temperature, humidity, pressure))
+
                     # Get the data from the payload
                     if dev.pluginProps[u"temperaturePayloadExtraction"]:
-                        self.debugLog("using '%s' to extract temperature from the payload" % dev.pluginProps[u"temperaturePayloadExtraction"])
                         temperature = self.extract_json_value(msg.payload, dev.pluginProps[u"temperaturePayloadExtraction"])
                     if dev.pluginProps[u"humidityPayloadExtraction"]:
-                        self.debugLog("using '%s' to extract humidity from the payload" % dev.pluginProps[u"humidityPayloadExtraction"])
                         humidity = self.extract_json_value(msg.payload, dev.pluginProps[u"humidityPayloadExtraction"])
                     if dev.pluginProps[u"pressurePayloadExtraction"]:
-                        self.debugLog("using '%s' to extract pressure from the payload" % dev.pluginProps[u"pressurePayloadExtraction"])
                         pressure = self.extract_json_value(msg.payload, dev.pluginProps[u"pressurePayloadExtraction"])
-                   
-		    self.debugLog("Got data: %s / %s / %s" % (temperature, humidity, pressure))
- 
+
+                    self.logger.debug("Got data: %s / %s / %s" % (temperature, humidity, pressure))
+
                     # Apply Formulas
                     if dev.pluginProps[u"temperatureFormula"]:
-			x = temperature
-			temperature = eval(dev.pluginProps[u"temperatureFormula"])
+                        x = temperature
+                        temperature = eval(dev.pluginProps[u"temperatureFormula"])
                     if dev.pluginProps[u"humidityFormula"]:
-			x = humidity
+                        x = humidity
                         humidity = eval(dev.pluginProps[u"humidityFormula"])
                     if dev.pluginProps[u"pressureFormula"]:
-			x = pressure
+                        x = pressure
                         pressure = eval(dev.pluginProps[u"pressureFormula"])
 
-		    self.debugLog("After Formulas: %s / %s / %s" % (temperature, humidity, pressure))
-                    
+                    self.logger.debug("After Formulas: %s / %s / %s" % (temperature, humidity, pressure))
+
                     # Apply offsets
                     if temperatureOffset is not None and temperature is not None:
-                        temperature+=temperatureOffset
+                        temperature += temperatureOffset
                     if humidityOffset is not None and humidity is not None:
-                        humidity+=humidityOffset
+                        humidity += humidityOffset
                     if pressureOffset is not None and pressure is not None:
-                        pressure+=pressureOffset
+                        pressure += pressureOffset
 
-		    self.debugLog("After Offsets: %s / %s / %s" % (temperature, humidity, pressure))
-                            
+                    self.logger.debug("After Offsets: %s / %s / %s" % (temperature, humidity, pressure))
+
                     status = []
                     if temperature is not None:
                         dev.updateStateOnServer('temperature', value=temperature, decimalPlaces=temperaturePrecision)
-                        status.append("%s%s" % (round(temperature, temperaturePrecision), temperatureUnit))
+                        status.append(u"%s°%s" % (round(temperature, temperaturePrecision), temperatureUnit))
                     if humidity is not None:
                         dev.updateStateOnServer('humidity', value=humidity, decimalPlaces=humidityPrecision)
-                        status.append("%s%s" % (round(humidity, humidityPrecision), humidityUnit))
+                        status.append(u"%s%s" % (round(humidity, humidityPrecision), humidityUnit))
                     if pressure is not None:
                         dev.updateStateOnServer('pressure', value=pressure, decimalPlaces=pressurePrecision)
-                        status.append("%s%s" % (round(pressure, pressurePrecision), pressureUnit))
+                        status.append(u"%s%s" % (round(pressure, pressurePrecision), pressureUnit))
                     if len(status) is not 0:
-			indigo.server.log("%s set to %s" % (dev.name, ' / '.join(status)))
-			dev.updateStateOnServer('status', ' / '.join(status), uiValue=' / '.join(status))
-			dev.updateStateImageOnServer(indigo.kStateImageSel.TemperatureSensorOn)
+                        status_string = u' / '.join(status)
+                        self.logger.info(u"%s set to %s" % (dev.name, status_string))
+                        dev.updateStateOnServer('status', status_string, uiValue=status_string)
+                        dev.updateStateImageOnServer(indigo.kStateImageSel.TemperatureSensorOn)
                 else:
                     self.debugLog(u"Dissecting Topic")
                     statelesstopic = self.superBridgePatternIn.replace(u"{DeviceName}", indigo.devices[devID].name)
@@ -544,11 +543,12 @@ class Plugin(indigo.PluginBase):
     def closedDeviceConfigUi(self, valuesDict, userCancelled, typeId, devId):
         self.client.subscribe(valuesDict[u"stateTopic"])
         self.connectToMQTTBroker()
-	#dev = indigo.devices[devId]
-	#if dev.deviceTypeId in [u"MQTTrelay", u"MQTTBinarySensor", u"MQTTSensor", u"MQTTWeatherSensor"]:
-	    #props = dev.pluginProps
-            #props.update({"address": props["stateTopic"]})
-            #dev.replacePluginPropsOnServer(props)
+
+    # dev = indigo.devices[devId]
+    # if dev.deviceTypeId in [u"MQTTrelay", u"MQTTBinarySensor", u"MQTTSensor", u"MQTTWeatherSensor"]:
+    # props = dev.pluginProps
+    # props.update({"address": props["stateTopic"]})
+    # dev.replacePluginPropsOnServer(props)
 
     def actionControlDevice(self, action, dev):
         try:

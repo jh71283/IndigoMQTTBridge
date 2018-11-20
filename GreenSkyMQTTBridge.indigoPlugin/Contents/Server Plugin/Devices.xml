@@ -82,7 +82,7 @@
             <Field id="unit" type="textfield" defaultValue="">
                 <Label>Unit:</Label>
             </Field>
-	    <Field id="formula" type="textfield" defaultValue="">
+	        <Field id="formula" type="textfield" defaultValue="">
                 <Label>Formula:</Label>
             </Field>
             <Field id="offset" type="textfield" defaultValue="">
@@ -96,14 +96,6 @@
             <Field id="SupportsStatusRequest" type="checkbox" defaultValue="false" hidden="true" />
             <Field id="AllowOnStateChange" type="checkbox" defaultValue="false" hidden="true" />
         </ConfigUI>
-        <UiDisplayStateId>display</UiDisplayStateId>
-        <States>
-            <State id="display">
-                <ValueType>String</ValueType>
-                <TriggerLabel>Display</TriggerLabel>
-                <ControlPageLabel>Display</ControlPageLabel>
-            </State>
-        </States>
     </Device>
     <Device type="custom" id="MQTTWeatherSensor">
         <Name>MQTT Weather Sensor</Name>
