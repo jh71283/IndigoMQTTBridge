@@ -76,20 +76,27 @@
             <Field id="stateTopic" type="textfield" defaultValue="">
                 <Label>State Topic:</Label>
             </Field>
-            <Field id="payloadExtraction" type="textfield" defaultValue="">
-                <Label>Payload Extraction:</Label>
+            <Field id="payloadExtraction" type="textfield" defaultValue="" tooltip="Used to access data inside of JSON data">
+                <Label>Payload Extraction (default=value taken as payload):</Label>
             </Field>
             <Field id="unit" type="textfield" defaultValue="">
                 <Label>Unit:</Label>
             </Field>
-	        <Field id="formula" type="textfield" defaultValue="">
-                <Label>Formula:</Label>
+	        <Field id="formula" type="textfield" defaultValue="" tooltip="Dynamic modifications to the value">
+                <Label>Formula (default=no changes):</Label>
             </Field>
-            <Field id="offset" type="textfield" defaultValue="">
-                <Label>Offset:</Label>
+            <Field id="offset" type="textfield" defaultValue="" tooltip="Corrections to apply to the value">
+                <Label>Offset (default=0):</Label>
             </Field>
-            <Field id="precision" type="textfield" defaultValue="1">
-                <Label>Precision:</Label>
+            <Field id="precision" type="textfield" defaultValue="1" tooltip="The number of decimal places to display">
+                <Label>Precision (default=0):</Label>
+            </Field>
+            <Field id="bottom" type="separator"/>
+            <Field id="formulaHelp" type="label">
+                <Label>Formula fields have a variable of "x" that is populated with the sensor value and the result is stored. This can be used to convert from Celsius to Fahrenheit.</Label>
+            </Field>
+            <Field id="formulaExample" type="label">
+                <Label>Example (celsius to fahrenheit): (9/5)*x+32</Label>
             </Field>
             <Field id="SupportsOnState" type="checkbox" defaultValue="false" hidden="true" />
             <Field id="SupportsSensorValue" type="checkbox" defaultValue="true" hidden="true" />
@@ -104,56 +111,59 @@
                 <Label>State Topic:</Label>
             </Field>
             <Field id="temperature" type="separator"/>
-            <Field id="temperaturePayloadExtraction" type="textfield" defaultValue="">
-                <Label>Temperature Payload Extraction:</Label>
+            <Field id="temperaturePayloadExtraction" type="textfield" defaultValue="" tooltip="Used to access data inside of JSON data">
+                <Label>Temperature Payload Extraction (default=value taken as payload):</Label>
             </Field>
             <Field id="temperatureUnit" type="textfield" defaultValue="">
                 <Label>Unit:</Label>
             </Field>
-            <Field id="temperatureFormula" type="textfield" defaultValue="">
-                <Label>Formula:</Label>
+            <Field id="temperatureFormula" type="textfield" defaultValue="" tooltip="Dynamic modifications to the value">
+                <Label>Formula (default=no changes):</Label>
             </Field>
-            <Field id="temperatureOffset" type="textfield" defaultValue="">
-                <Label>Offset:</Label>
+            <Field id="temperatureOffset" type="textfield" defaultValue="" tooltip="Corrections to apply to the value">
+                <Label>Offset (default=0):</Label>
             </Field>
-            <Field id="temperaturePrecision" type="textfield" defaultValue="1">
-                <Label>Precision:</Label>
+            <Field id="temperaturePrecision" type="textfield" defaultValue="1" tooltip="The number of decimal places to display">
+                <Label>Precision (default=0):</Label>
             </Field>
             <Field id="humidity" type="separator"/>
-            <Field id="humidityPayloadExtraction" type="textfield" defaultValue="">
-                <Label>Humidity Payload Extraction:</Label>
+            <Field id="humidityPayloadExtraction" type="textfield" defaultValue="" tooltip="Used to access data inside of JSON data">
+                <Label>Humidity Payload Extraction (default=value taken as payload):</Label>
             </Field>
             <Field id="humidityUnit" type="textfield" defaultValue="%">
                 <Label>Unit:</Label>
             </Field>
-            <Field id="humidityFormula" type="textfield" defaultValue="">
-                <Label>Formula:</Label>
+            <Field id="humidityFormula" type="textfield" defaultValue="" tooltip="Dynamic modifications to the value">
+                <Label>Formula (default=no changes):</Label>
             </Field>
-            <Field id="humidityOffset" type="textfield" defaultValue="">
-                <Label>Offset:</Label>
+            <Field id="humidityOffset" type="textfield" defaultValue="" tooltip="Corrections to apply to the value">
+                <Label>Offset (default=0):</Label>
             </Field>
-            <Field id="humidityPrecision" type="textfield" defaultValue="1">
-                <Label>Precision:</Label>
+            <Field id="humidityPrecision" type="textfield" defaultValue="1" tooltip="The number of decimal places to display">
+                <Label>Precision (default=0):</Label>
             </Field>
             <Field id="pressure" type="separator"/>
-            <Field id="pressurePayloadExtraction" type="textfield" defaultValue="">
-                <Label>Pressure Payload Extraction:</Label>
+            <Field id="pressurePayloadExtraction" type="textfield" defaultValue="" tooltip="Used to access data inside of JSON data">
+                <Label>Pressure Payload Extraction (default=value taken as payload):</Label>
             </Field>
             <Field id="pressureUnit" type="textfield" defaultValue="hPa">
                 <Label>Unit:</Label>
             </Field>
-            <Field id="pressureFormula" type="textfield" defaultValue="">
-                <Label>Formula:</Label>
+            <Field id="pressureFormula" type="textfield" defaultValue="" tooltip="Dynamic modifications to the value">
+                <Label>Formula (default=no changes):</Label>
             </Field>
-            <Field id="pressureOffset" type="textfield" defaultValue="">
-                <Label>Offset:</Label>
+            <Field id="pressureOffset" type="textfield" defaultValue="" tooltip="Corrections to apply to the value">
+                <Label>Offset (default=0):</Label>
             </Field>
-            <Field id="pressurePrecision" type="textfield" defaultValue="1">
-                <Label>Precision:</Label>
+            <Field id="pressurePrecision" type="textfield" defaultValue="1" tooltip="The number of decimal places to display">
+                <Label>Precision (default=0):</Label>
             </Field>
             <Field id="bottom" type="separator"/>
             <Field id="formulaHelp" type="label">
                 <Label>Formula fields have a variable of "x" that is populated with the sensor value and the result is stored. This can be used to convert from Celsius to Fahrenheit.</Label>
+            </Field>
+            <Field id="formulaExample" type="label">
+                <Label>Example (celsius to fahrenheit): (9/5)*x+32</Label>
             </Field>
             <Field id="SupportsOnState" type="checkbox" defaultValue="false" hidden="true" />
             <Field id="SupportsSensorValue" type="checkbox" defaultValue="true" hidden="true" />
