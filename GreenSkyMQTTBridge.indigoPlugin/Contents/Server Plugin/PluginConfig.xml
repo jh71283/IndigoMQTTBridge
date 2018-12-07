@@ -37,6 +37,14 @@
 		<Label>SuperBridge Pattern (Action Groups):</Label>
 		<Description>{ActionGroup} will be replaced</Description>
 	</Field>
+	<Field id="superBridgeRetain" type="checkbox">
+		<Label>Retain SB Messages:</Label>
+		<Description></Description>
+	</Field>
+		<Field id="superBridgeFlush" type="checkbox">
+		<Label>Flush all device states to SB on connect:</Label>
+		<Description></Description>
+	</Field>
     <Field id="showDebugInfo" type="checkbox">
 		<Label>Enable debugging:</Label>
 		<Description>(not recommended)</Description>

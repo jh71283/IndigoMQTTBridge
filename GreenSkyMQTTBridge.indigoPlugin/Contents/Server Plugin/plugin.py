@@ -58,6 +58,7 @@ class Plugin(indigo.PluginBase):
         self.superBridgePatternOut = u'indigo/devices/{DeviceName}/{State}'
         self.superBridgePatternIn = u'indigo/devices/{DeviceName}/{State}/set'
         self.superBridgePatternActionGroup = u'indigo/actionGroups/{ActionGroup}/execute'
+        self.superBridgeRetain = False
         indigo.devices.subscribeToChanges()
 
         self.updatePrefs(pluginPrefs)
@@ -75,7 +76,7 @@ class Plugin(indigo.PluginBase):
         self.superBridgePatternOut = prefs.get(u"superBridgePatternOut", u'indigo/devices/{DeviceName}/{State}')
         self.superBridgePatternIn = prefs.get(u"superBridgePatternIn", u'indigo/devices/{DeviceName}/{State}/set')
         self.superBridgePatternActionGroup = prefs.get(u"superBridgePatternActionGroup", u'indigo/actionGroups/{ActionGroup}/execute')
-
+        self.superBridgeRetain = prefs.get(u"superBridgeRetain", False)
         if self.debug:
             self.debugLog(u"logger debugging enabled")
         else:
@@ -205,9 +206,9 @@ class Plugin(indigo.PluginBase):
                     continue
                 else:
                     self.debugLog(u"Publishing new Value for " + mqttTopic + u": " + val)
-                    self.publish(mqttTopic, val)
+                    self.publish(mqttTopic, val, 0, self.superBridgeRetain)
                     self.debugLog(u"Publishing new Value for " + mqttTopic2 + u": " + val)
-                    self.publish(mqttTopic2, val)
+                    self.publish(mqttTopic2, val, 0, self.superBridgeRetain)
 
         except Exception:
             t, v, tb = sys.exc_info()
